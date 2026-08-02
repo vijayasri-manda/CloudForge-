@@ -58,16 +58,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Trivy Repository Vulnerability & Secrets Scan
-        uses: aquasecurity/trivy-action@0.28.0
-        continue-on-error: true
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          ignore-unfixed: true
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0' # DevSecOps Security Audit mode
+      - name: Install & Run Trivy Vulnerability & SAST Scan
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          trivy fs --severity CRITICAL,HIGH --ignore-unfixed . || true
 
   # --- Stage 3: Build, Syft SBOM, Cosign Signing & Container Scan ---
   build-and-sign:
@@ -108,12 +102,9 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Trivy Container Image Scan (Backend)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: '${{ env.BACKEND_IMAGE }}:${{ github.sha }}'
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0' # Audit mode for build verification
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          trivy image --severity CRITICAL,HIGH ${{ env.BACKEND_IMAGE }}:${{ github.sha }} || true
 
       - name: Generate Software Bill of Materials (SBOM) with Syft
         run: |
