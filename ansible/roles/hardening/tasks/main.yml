@@ -1,0 +1,42 @@
+---
+- name: Kernel Security Hardening (Sysctl)
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop:
+    - { name: 'net.ipv4.ip_forward', value: '1' }
+    - { name: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+    - { name: 'net.ipv4.conf.all.accept_redirects', value: '0' }
+    - { name: 'net.ipv4.conf.all.send_redirects', value: '0' }
+    - { name: 'fs.inotify.max_user_watches', value: '524288' }
+    - { name: 'fs.inotify.max_user_instances', value: '512' }
+
+- name: Install Hardening Utilities (Fail2ban, Firewalld)
+  dnf:
+    name:
+      - fail2ban
+      - firewalld
+      - curl
+      - git
+      - htop
+    state: present
+
+- name: Ensure Fail2ban is Started & Enabled
+  systemd:
+    name: fail2ban
+    state: started
+    enabled: yes
+
+- name: Configure Firewalld Service Rules
+  firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  loop:
+    - "22/tcp"
+    - "80/tcp"
+    - "443/tcp"
+    - "6443/tcp"

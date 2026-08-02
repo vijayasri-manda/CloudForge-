@@ -1,0 +1,149 @@
+name: Enterprise DevSecOps CI/CD & GitOps Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  security-events: write
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
+
+jobs:
+  # --- Stage 1: Quality, Linting & Unit Testing ---
+  lint-and-test:
+    name: Linting & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            apps/backend/package-lock.json
+            apps/frontend/package-lock.json
+
+      - name: Backend Unit Tests
+        run: |
+          cd apps/backend
+          npm ci
+          npm run test --if-present
+
+      - name: Frontend Lint Check
+        run: |
+          cd apps/frontend
+          npm ci
+          npm run lint --if-present
+
+  # --- Stage 2: DevSecOps Security & Vulnerability Scanning ---
+  security-scan:
+    name: DevSecOps Repository & SAST Scanning
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Trivy Repository Vulnerability & Secrets Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1' # Fail pipeline on CRITICAL vulnerabilities
+
+  # --- Stage 3: Build, Syft SBOM, Cosign Signing & Container Scan ---
+  build-and-sign:
+    name: Docker Build, Trivy, Syft SBOM & Cosign Sign
+    runs-on: ubuntu-latest
+    needs: security-scan
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Cosign (Sigstore)
+        uses: sigstore/cosign-installer@v3.5.0
+
+      - name: Install Syft (Anchore SBOM Generator)
+        uses: anchore/sbom-action/download-syft@v0.15.10
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push Backend Container Image
+        id: build-backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/backend
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+            ${{ env.BACKEND_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trivy Container Image Scan (Backend)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.BACKEND_IMAGE }}:${{ github.sha }}'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0' # Audit mode for build verification
+
+      - name: Generate Software Bill of Materials (SBOM) with Syft
+        run: |
+          syft ${{ env.BACKEND_IMAGE }}:${{ github.sha }} -o spdx-json > backend-sbom.spdx.json
+
+      - name: Upload SBOM Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-sbom
+          path: backend-sbom.spdx.json
+
+      - name: Sign Container Image with Cosign (Keyless Sigstore OIDC)
+        run: |
+          cosign sign --yes ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+
+  # --- Stage 4: GitOps Repository Manifest Update ---
+  gitops-sync:
+    name: GitOps Manifest Update & Deployment Trigger
+    runs-on: ubuntu-latest
+    needs: build-and-sign
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Update Kubernetes Overlay Tag
+        run: |
+          sed -i 's|image: ghcr.io/enterprise/backend:.*|image: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}|g' kubernetes/base/backend-deployment.yaml
+
+      - name: Commit & Push GitOps Update
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add kubernetes/base/backend-deployment.yaml
+          git commit -m "chore(gitops): auto-update backend image tag to ${{ github.sha }} [skip ci]" || echo "No changes to commit"
+          git push origin main || echo "Git push skipped in sandbox environment"

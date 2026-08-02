@@ -1,0 +1,24 @@
+# Node / Next.js / TypeScript build artifacts
+node_modules/
+.next/
+dist/
+build/
+*.log
+
+# Environment & local secrets
+.env
+.env.local
+.env.production
+.env.development
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Data volumes / temp cache
+postgres_data/
+prometheus_data/
+grafana_data/
+.tmp/

@@ -1,0 +1,29 @@
+groups:
+  - name: EnterprisePlatformAlerts
+    rules:
+      - alert: BackendServiceDown
+        expr: up{job="backend-microservice"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend Microservice Instance Down"
+          description: "Backend target on {{ $labels.instance }} has been down for over 1 minute."
+
+      - alert: HighHttpRequestLatency
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P95 HTTP Request Latency"
+          description: "95th percentile HTTP latency exceeded 1.5 seconds over 5 minutes."
+
+      - alert: HighHttp5xxErrorRate
+        expr: sum(rate(http_requests_total{code=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx HTTP Error Rate Detected"
+          description: "HTTP 5xx server error rate has exceeded 5% over the last 5 minutes."

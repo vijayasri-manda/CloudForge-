@@ -1,0 +1,27 @@
+---
+- name: Add Docker CE Repository
+  get_url:
+    url: https://download.docker.com/linux/centos/docker-ce.repo
+    dest: /etc/yum.repos.d/docker-ce.repo
+
+- name: Install Docker Packages
+  dnf:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+
+- name: Start & Enable Docker Daemon
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Add User to Docker Group
+  user:
+    name: opc
+    groups: docker
+    append: yes

@@ -1,0 +1,8 @@
+tenancy_ocid     = "ocid1.tenancy.oc1..exampletenancyocid"
+user_ocid        = "ocid1.user.oc1..exampleuserocid"
+fingerprint      = "20:3b:97:13:55:1c:5b:0d:d2:37:b9:e6:f4:e5:aa:bb"
+private_key_path = "~/.oci/oci_api_key.pem"
+region           = "us-ashburn-1"
+compartment_ocid = "ocid1.compartment.oc1..examplecompartmentocid"
+ssh_public_key   = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ... user@enterprise"
+environment      = "production"

@@ -1,0 +1,29 @@
+---
+- name: Download & Install k3s Lightweight Kubernetes
+  shell: |
+    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644 --disable traefik" sh -
+  args:
+    creates: /usr/local/bin/k3s
+
+- name: Ensure k3s Service is Running & Enabled
+  systemd:
+    name: k3s
+    state: started
+    enabled: yes
+
+- name: Create .kube directory for User
+  file:
+    path: /home/opc/.kube
+    state: directory
+    owner: opc
+    group: opc
+    mode: '0755'
+
+- name: Copy Kubeconfig to User Directory
+  copy:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: /home/opc/.kube/config
+    remote_src: yes
+    owner: opc
+    group: opc
+    mode: '0600'
