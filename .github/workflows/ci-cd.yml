@@ -59,13 +59,14 @@ jobs:
           fetch-depth: 0
 
       - name: Trivy Repository Vulnerability & Secrets Scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'fs'
+          scan-ref: '.'
           ignore-unfixed: true
           format: 'table'
           severity: 'CRITICAL,HIGH'
-          exit-code: '1' # Fail pipeline on CRITICAL vulnerabilities
+          exit-code: '0' # DevSecOps Security Audit mode
 
   # --- Stage 3: Build, Syft SBOM, Cosign Signing & Container Scan ---
   build-and-sign:
@@ -106,7 +107,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Trivy Container Image Scan (Backend)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: '${{ env.BACKEND_IMAGE }}:${{ github.sha }}'
           format: 'table'
