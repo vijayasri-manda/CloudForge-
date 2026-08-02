@@ -75,7 +75,7 @@ jobs:
 
       - name: Set Lowercase Image Names for GHCR
         run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | sed 's/[-_.]*$//')
           echo "BACKEND_IMAGE=ghcr.io/${REPO_LOWER}/backend" >> $GITHUB_ENV
           echo "FRONTEND_IMAGE=ghcr.io/${REPO_LOWER}/frontend" >> $GITHUB_ENV
 
@@ -128,7 +128,7 @@ jobs:
 
       - name: Set Lowercase Image Names for GHCR
         run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | sed 's/[-_.]*$//')
           echo "BACKEND_IMAGE=ghcr.io/${REPO_LOWER}/backend" >> $GITHUB_ENV
           echo "FRONTEND_IMAGE=ghcr.io/${REPO_LOWER}/frontend" >> $GITHUB_ENV
 
