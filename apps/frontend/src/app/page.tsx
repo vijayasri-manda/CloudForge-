@@ -27,14 +27,15 @@ export default function Home() {
   useEffect(() => {
     const fetchHealth = async () => {
       try {
-        const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000/healthz');
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://cloudforge-95sm.onrender.com/healthz';
+        const res = await fetch(backendUrl);
         if (res.ok) {
           const data = await res.json();
           setMetrics((prev) => ({
             ...prev,
             backendStatus: 'HEALTHY',
-            uptime: Math.round(data.checks.uptime || 0),
-            dbStatus: data.checks.database === 'ok' ? 'ONLINE' : 'DEGRADED',
+            uptime: Math.round(data.checks?.uptime || 0),
+            dbStatus: data.checks?.database === 'ok' ? 'ONLINE' : 'DEGRADED',
           }));
         } else {
           setMetrics((prev) => ({ ...prev, backendStatus: 'DEGRADED' }));
@@ -200,7 +201,7 @@ export default function Home() {
       {/* Embedded Grafana Viewer with Back Button */}
       {showGrafana && (
         <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col">
-          <div className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between">
+          <div className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setShowGrafana(false)}
@@ -212,10 +213,15 @@ export default function Home() {
                 Grafana Observability Dashboard
               </span>
             </div>
+
+            <div className="text-xs text-slate-400 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800 font-mono">
+              Target: <span className="text-amber-400 font-bold">{process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3001'}</span>
+              <span className="text-slate-500 ml-2">(Runs on local Docker/k8s cluster or via cloud proxy)</span>
+            </div>
           </div>
-          <div className="flex-1 w-full h-full bg-slate-900">
+          <div className="flex-1 w-full h-full bg-slate-900 relative">
             <iframe
-              src="http://localhost:3001"
+              src={process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3001'}
               className="w-full h-full border-none"
               title="Grafana Dashboard"
             />
@@ -231,7 +237,7 @@ export default function Home() {
             <p className="text-xs text-slate-400 mt-1">Real-time HTTP request duration histograms, CPU/Memory gauges, and DB latency.</p>
           </div>
           <a
-            href="http://localhost:9090"
+            href={process.env.NEXT_PUBLIC_PROMETHEUS_URL || 'http://localhost:9090'}
             target="_blank"
             rel="noreferrer"
             className="mt-4 inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-xl bg-orange-600/20 border border-orange-500/40 text-orange-300 hover:bg-orange-600/30 transition-all"
@@ -259,7 +265,7 @@ export default function Home() {
             <p className="text-xs text-slate-400 mt-1">Unified structured JSON log collection from Promtail container collectors.</p>
           </div>
           <a
-            href="http://localhost:3100/ready"
+            href={process.env.NEXT_PUBLIC_LOKI_URL || 'http://localhost:3100/ready'}
             target="_blank"
             rel="noreferrer"
             className="mt-4 inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-xl bg-cyan-600/20 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-600/30 transition-all"
