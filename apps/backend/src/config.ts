@@ -7,6 +7,7 @@ export const config = {
   env: process.env.NODE_ENV || 'development',
   jwtSecret: process.env.JWT_SECRET || 'super-secret-enterprise-key-change-in-prod',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
+  databaseUrl: process.env.DATABASE_URL,
   db: {
     host: process.env.POSTGRES_HOST || 'localhost',
     port: parseInt(process.env.POSTGRES_PORT || '5432', 10),

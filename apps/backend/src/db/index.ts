@@ -3,16 +3,25 @@ import { config } from '../config';
 import { logger } from '../logger';
 import { dbQueryDurationMicroseconds } from '../metrics';
 
-export const pool = new Pool({
-  host: config.db.host,
-  port: config.db.port,
-  user: config.db.user,
-  password: config.db.password,
-  database: config.db.database,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+export const pool = config.databaseUrl
+  ? new Pool({
+      connectionString: config.databaseUrl,
+      ssl: process.env.NODE_ENV === 'production' || process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    })
+  : new Pool({
+      host: config.db.host,
+      port: config.db.port,
+      user: config.db.user,
+      password: config.db.password,
+      database: config.db.database,
+      ssl: process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
 
 pool.on('error', (err) => {
   logger.error({ err }, 'Unexpected error on idle PostgreSQL client');
