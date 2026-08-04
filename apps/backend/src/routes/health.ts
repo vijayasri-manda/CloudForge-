@@ -4,6 +4,24 @@ import { metricsRegistry } from '../metrics';
 
 const router = Router();
 
+// Root endpoint - Service Overview
+router.get('/', (req: Request, res: Response) => {
+  res.status(200).json({
+    service: 'CloudForge Backend API',
+    status: 'online',
+    version: process.env.APP_VERSION || '1.0.0',
+    endpoints: {
+      health: '/healthz',
+      liveness: '/livez',
+      readiness: '/readyz',
+      metrics: '/metrics',
+      auth: '/api/v1/auth',
+      api: '/api/v1'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Liveness probe - checks if the web server process is alive
 router.get('/livez', (req: Request, res: Response) => {
   res.status(200).json({
