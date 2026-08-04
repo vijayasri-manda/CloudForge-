@@ -23,6 +23,28 @@ export default function Home() {
 
   const [loading, setLoading] = useState(true);
   const [showGrafana, setShowGrafana] = useState(false);
+  const [activeTab, setActiveTab] = useState<'grafana' | 'cloudMetrics'>('grafana');
+  const [rawMetrics, setRawMetrics] = useState<string>('Loading live Prometheus metrics from Render backend...');
+
+  useEffect(() => {
+    if (showGrafana && activeTab === 'cloudMetrics') {
+      const fetchMetrics = async () => {
+        try {
+          const metricsUrl = (process.env.NEXT_PUBLIC_BACKEND_URL || 'https://cloudforge-95sm.onrender.com/healthz').replace('/healthz', '/metrics');
+          const res = await fetch(metricsUrl);
+          if (res.ok) {
+            const text = await res.text();
+            setRawMetrics(text);
+          } else {
+            setRawMetrics('Failed to load metrics from cloud backend.');
+          }
+        } catch (err) {
+          setRawMetrics('Error connecting to cloud backend metrics stream.');
+        }
+      };
+      fetchMetrics();
+    }
+  }, [showGrafana, activeTab]);
 
   useEffect(() => {
     const fetchHealth = async () => {
@@ -198,9 +220,10 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Embedded Grafana Viewer with Back Button */}
+      {/* Embedded Grafana / Telemetry Viewer with Tab Controls & Back Button */}
       {showGrafana && (
         <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col">
+          {/* Modal Header */}
           <div className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-4">
               <button
@@ -209,22 +232,85 @@ export default function Home() {
               >
                 &larr; Back to Landing Page
               </button>
-              <span className="text-sm font-mono text-slate-300">
-                Grafana Observability Dashboard
-              </span>
+              <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button
+                  onClick={() => setActiveTab('grafana')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    activeTab === 'grafana'
+                      ? 'bg-amber-500 text-slate-950 font-bold'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Grafana Dashboard (Local/Proxy)
+                </button>
+                <button
+                  onClick={() => setActiveTab('cloudMetrics')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    activeTab === 'cloudMetrics'
+                      ? 'bg-amber-500 text-slate-950 font-bold'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Live Cloud Telemetry Stream
+                </button>
+              </div>
             </div>
 
-            <div className="text-xs text-slate-400 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800 font-mono">
-              Target: <span className="text-amber-400 font-bold">{process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3001'}</span>
-              <span className="text-slate-500 ml-2">(Runs on local Docker/k8s cluster or via cloud proxy)</span>
+            <div className="text-xs text-slate-400 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800 font-mono flex items-center gap-2">
+              <span>Target:</span>
+              <span className="text-amber-400 font-bold">
+                {activeTab === 'grafana'
+                  ? (process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3001')
+                  : (process.env.NEXT_PUBLIC_BACKEND_URL || 'https://cloudforge-95sm.onrender.com/healthz').replace('/healthz', '/metrics')}
+              </span>
             </div>
           </div>
-          <div className="flex-1 w-full h-full bg-slate-900 relative">
-            <iframe
-              src={process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3001'}
-              className="w-full h-full border-none"
-              title="Grafana Dashboard"
-            />
+
+          {/* Modal Body */}
+          <div className="flex-1 w-full h-full bg-slate-950 relative overflow-hidden flex flex-col">
+            {activeTab === 'grafana' ? (
+              <div className="flex-1 w-full h-full flex flex-col relative">
+                {/* Information Banner for Localhost Access */}
+                <div className="bg-slate-900/90 border-b border-slate-800 px-6 py-2 flex items-center justify-between text-xs text-slate-300">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                    <strong>Note:</strong> Grafana runs inside your local Docker Compose cluster. If you see &quot;localhost refused to connect&quot;, run <code className="bg-slate-950 px-1.5 py-0.5 rounded text-amber-300 font-mono">docker-compose up -d</code> in your terminal, or switch to the <strong>Live Cloud Telemetry Stream</strong> tab above.
+                  </span>
+                </div>
+                <iframe
+                  src={process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3001'}
+                  className="w-full flex-1 border-none"
+                  title="Grafana Dashboard"
+                />
+              </div>
+            ) : (
+              <div className="flex-1 p-6 overflow-auto font-mono text-xs text-emerald-400 bg-slate-950">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                  <div className="text-slate-200 font-bold text-sm font-sans flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                    Live Prometheus Scraping Stream (/metrics)
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setRawMetrics('Refreshing metrics...');
+                      try {
+                        const metricsUrl = (process.env.NEXT_PUBLIC_BACKEND_URL || 'https://cloudforge-95sm.onrender.com/healthz').replace('/healthz', '/metrics');
+                        const res = await fetch(metricsUrl);
+                        setRawMetrics(await res.text());
+                      } catch (err) {
+                        setRawMetrics('Error refreshing metrics.');
+                      }
+                    }}
+                    className="px-3 py-1 rounded bg-slate-800 text-slate-200 text-xs font-sans hover:bg-slate-700 transition-all cursor-pointer"
+                  >
+                    🔄 Refresh Now
+                  </button>
+                </div>
+                <pre className="whitespace-pre-wrap leading-relaxed text-slate-300 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                  {rawMetrics}
+                </pre>
+              </div>
+            )}
           </div>
         </div>
       )}
